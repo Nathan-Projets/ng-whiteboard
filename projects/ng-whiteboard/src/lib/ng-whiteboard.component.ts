@@ -99,8 +99,8 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
     return svg;
   }
 
-  private addImage(image: string | ArrayBuffer) {
-    this.drawImage(image);
+  private addImage(image: string | ArrayBuffer, x?: number, y?: number) {
+    this.drawImage(image, x, y);
   }
 
   private eraseSvg(svg: Selection<any, unknown, null, undefined>) {
@@ -180,12 +180,12 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
     this.selection.node().appendChild(pathNode);
   }
 
-  private drawImage(image: string | ArrayBuffer) {
+  private drawImage(image: string | ArrayBuffer, x?: number, y?: number) {
     const group = this.selection
       .append('g')
       .data([{ x: 20, y: 20, r: 1, scale: 1 }])
-      .attr('x', 0)
-      .attr('y', 0)
+      .attr('x', x ? x : 0)
+      .attr('y', y ? y : 0)
       .attr('transform', 'translate(0,0)');
 
     const tempImg = new Image();
