@@ -38,8 +38,11 @@ export class AppComponent {
       cb.writeText(img);
     }
   }
-  onImageAded() {
-    this.toastr.success('ImageAded!');
+  onImageAdded() {
+    this.toastr.success('Image Added!');
+  }
+  onTextAdded() {
+    this.toastr.success('Text Added!');
   }
 
   erase() {
@@ -71,5 +74,8 @@ export class AppComponent {
     if (file) {
       reader.readAsDataURL(file);
     }
+  }
+  addText(text?: string) {
+    this.whiteboardService.addText(text, 50, 50);
   }
 }

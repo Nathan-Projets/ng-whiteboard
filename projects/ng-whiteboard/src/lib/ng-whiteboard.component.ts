@@ -27,6 +27,7 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
   @Output() redo = new EventEmitter();
   @Output() save = new EventEmitter<string>();
   @Output() imageAdded = new EventEmitter();
+  @Output() textAdded = new EventEmitter();
 
   private selection: Selection<any, unknown, null, undefined> = undefined;
 
@@ -47,7 +48,12 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
     );
     this.subscriptionList.push(this.whiteboardService.undoSvgMethodCalled$.subscribe(() => this.undoDraw()));
     this.subscriptionList.push(this.whiteboardService.redoSvgMethodCalled$.subscribe(() => this.redoDraw()));
-    this.subscriptionList.push(this.whiteboardService.addImageMethodCalled$.subscribe((image) => this.addImage(image)));
+    this.subscriptionList.push(
+      this.whiteboardService.addImageMethodCalled$.subscribe(({ image, x, y }) => this.addImage(image, x, y))
+    );
+    this.subscriptionList.push(
+      this.whiteboardService.addTextMethodCalled$.subscribe(({ text, x, y }) => this.addText(text, x, y))
+    );
 
     this.selection = this.initSvg(this.svgContainer.nativeElement);
   }
@@ -101,6 +107,12 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
 
   private addImage(image: string | ArrayBuffer, x?: number, y?: number) {
     this.drawImage(image, x, y);
+    this.imageAdded.emit();
+  }
+
+  private addText(text: string, x?: number, y?: number) {
+    this.drawText(text, x, y);
+    this.textAdded.emit();
   }
 
   private eraseSvg(svg: Selection<any, unknown, null, undefined>) {
@@ -111,7 +123,45 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
   }
 
   private saveSvg(name, format: formatTypes) {
-    const svgString = this.saveAsSvg(this.selection.clone(true).node());
+    select(this.selection.node())
+      .selectAll('textarea')
+      .nodes()
+      .forEach((element: any) => {
+        const rect = element?.getBoundingClientRect();
+        const coordinates = {
+          left: (rect?.left || 0) + window?.scrollX,
+          top: (rect?.top || 0) + window?.scrollY,
+        };
+
+        const textareaSplit = element.value.split('\n');
+
+        const group = this.selection
+          .append('g')
+          .data([{ x: 20, y: 20, r: 1, scale: 1 }])
+          .attr('x', coordinates.left)
+          .attr('y', coordinates.top)
+          .attr('transform', 'translate(' + [coordinates.left, coordinates.top] + ')');
+
+        group
+          .selectAll('text')
+          .data(textareaSplit)
+          .enter()
+          .append('text')
+          .text(function (d: string) {
+            return d;
+          })
+          .attr('x', 0)
+          .attr('y', function (d, i) {
+            return i * 1.2 + 'em';
+          });
+
+        const foreignObjectParent = element.parentNode.parentNode.parentNode;
+        foreignObjectParent.parentNode.removeChild(foreignObjectParent);
+      });
+
+    const selectionClone = this.selection.clone(true).node();
+    const svgString = this.saveAsSvg(selectionClone);
+
     switch (format) {
       case FormatType.Base64:
         this.svgString2Image(
@@ -126,7 +176,7 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
         break;
       case FormatType.Svg:
         const imgSrc = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-        this.download(imgSrc, name);
+        this.download(imgSrc, name + '.' + format);
         this.save.emit(imgSrc);
         break;
       default:
@@ -136,7 +186,7 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
           Number(this.selection.style('height').replace('px', '')),
           format,
           (img) => {
-            this.download(img, name);
+            this.download(img, name + '.' + format);
             this.save.emit(img);
           }
         );
@@ -184,9 +234,9 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
     const group = this.selection
       .append('g')
       .data([{ x: 20, y: 20, r: 1, scale: 1 }])
-      .attr('x', x ? x : 0)
-      .attr('y', y ? y : 0)
-      .attr('transform', 'translate(0,0)');
+      .attr('x', x)
+      .attr('y', y)
+      .attr('transform', 'translate(' + [x, y] + ')');
 
     const tempImg = new Image();
     tempImg.onload = () => {
@@ -242,6 +292,7 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
       group
         .on('mouseover', function () {
           select(this).select('rect').style('opacity', 1.0);
+          select(this).select('rect').style('cursor', 'move');
         })
         .on('mouseout', function () {
           select(this).select('rect').style('opacity', 0);
@@ -249,6 +300,84 @@ export class NgWhiteboardComponent implements AfterViewInit, OnDestroy {
       // this.undoStack.push({ type: ActionType.Image, image: group.node() });
     };
     tempImg.src = image.toString();
+  }
+
+  private drawText(text: string, x?: number, y?: number) {
+    const group = this.selection
+      .append('g')
+      .data([{ x: 20, y: 20, r: 1, scale: 1 }])
+      .attr('x', x)
+      .attr('y', y)
+      .attr('transform', 'translate(' + [x, y] + ')');
+
+    group
+      .selectAll('text')
+      .data([text])
+      .enter()
+      .append('foreignObject')
+      .attr('x', 10)
+      .attr('y', function (d, i) {
+        return i + 1 + 'em';
+      })
+      .attr('width', '200px')
+      .attr('height', '200px')
+      .append('xhtml:div')
+      .append('textarea')
+      .attr('class', 'form-control')
+      .style('width', '193px')
+      .style('height', '193px')
+      .style('resize', 'none')
+      .property('value', text)
+      .call(
+        drag()
+          .subject(() => {
+            const p = [event.x, event.y];
+            return [p, p];
+          })
+          .on('start', () => {
+            // Nothing happens but it can disable drawing
+          })
+      );
+
+    group
+      .append('rect')
+      .attr('x', 0)
+      .attr('y', 10)
+      .attr('width', 10)
+      .attr('height', 10)
+      .style('opacity', 0)
+      .attr('fill', (d) => {
+        return '#cccccc';
+      })
+      .call(
+        drag()
+          .subject(() => {
+            const p = [event.x, event.y];
+            return [p, p];
+          })
+          .on('start', () => {
+            event.on('drag', function (d) {
+              const cursor = select(this);
+              const cord = mouse(this);
+
+              d.x += cord[0] - Number(cursor.attr('width')) / 2;
+              d.y += cord[1] - Number(cursor.attr('height')) / 2 - 10;
+              select(this.parentNode).attr('transform', () => {
+                return (
+                  'translate(' + [d.x, d.y] + '), rotate(' + 0 + ', 160, 160), scale(' + d.scale + ',' + d.scale + ')'
+                );
+              });
+            });
+          })
+      );
+    group
+      .on('mouseover', function () {
+        select(this).select('rect').style('opacity', 1.0);
+        select(this).select('rect').style('cursor', 'move');
+      })
+      .on('mouseout', function () {
+        select(this).select('rect').style('opacity', 0);
+      });
   }
 
   private _unsubscribe(subscription: Subscription): void {

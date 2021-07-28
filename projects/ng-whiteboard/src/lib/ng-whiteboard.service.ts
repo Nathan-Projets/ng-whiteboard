@@ -11,7 +11,8 @@ export class NgWhiteboardService {
   private saveSvgMethodCallSource = new Subject<{ name: string; format: formatTypes }>();
   private undoSvgMethodCallSource = new Subject<any>();
   private redoSvgMethodCallSource = new Subject<any>();
-  private addImageMethodCallSource = new Subject<string | ArrayBuffer>();
+  private addImageMethodCallSource = new Subject<{ image: string | ArrayBuffer; x?: number; y?: number }>();
+  private addTextMethodCallSource = new Subject<{ text: string; x?: number; y?: number }>();
 
   // Observable string streams
   eraseSvgMethodCalled$ = this.eraseSvgMethodCallSource.asObservable();
@@ -19,6 +20,7 @@ export class NgWhiteboardService {
   undoSvgMethodCalled$ = this.undoSvgMethodCallSource.asObservable();
   redoSvgMethodCalled$ = this.redoSvgMethodCallSource.asObservable();
   addImageMethodCalled$ = this.addImageMethodCallSource.asObservable();
+  addTextMethodCalled$ = this.addTextMethodCallSource.asObservable();
 
   // Service message commands
   public erase(): void {
@@ -33,7 +35,10 @@ export class NgWhiteboardService {
   public redo(): void {
     this.redoSvgMethodCallSource.next();
   }
-  public addImage(image: string | ArrayBuffer): void {
-    this.addImageMethodCallSource.next(image);
+  public addImage(image: string | ArrayBuffer, x?: number, y?: number): void {
+    this.addImageMethodCallSource.next({ image, x, y });
+  }
+  public addText(text: string, x?: number, y?: number): void {
+    this.addTextMethodCallSource.next({ text, x, y });
   }
 }

@@ -56,7 +56,8 @@
     [size]="size"
     (init)="onInit()"
     (clear)="onClear()"
-    (imageAdded)="onImageAded()"
+    (imageAdded)="onImageAdded()"
+    (textAdded)="onTextAdded()"
     (redo)="onRedo()"
     (undo)="onUndo()"
     (save)="onSave($event)"
@@ -98,7 +99,7 @@
       </li>
     </ul>
   </div>
-
+  <button (click)="addText()">Add text</button>
   <button (click)="erase()">Erase</button>
   <button (click)="undo()">Undo</button>
   <button (click)="redo()">Redo</button>
